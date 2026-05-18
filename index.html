@@ -554,7 +554,7 @@
 
   <div id="activeRoundArea" style="display:none">
     <div class="submit-row">
-      <input type="text" id="charInput" placeholder="Suggest a character…" maxlength="80" autocomplete="off">
+      <input type="text" id="charInput" placeholder="Suggest a character…" maxlength="25" autocomplete="off">
       <button id="submitBtn" onclick="submitSuggestion()">Suggest</button>
     </div>
 
@@ -695,7 +695,7 @@ function render() {
         if (editingId === s.id) {
           return `
             <div class="card${rank}">
-              <input class="edit-input" id="editInput-${s.id}" type="text" maxlength="80" value="${esc(s.name)}">
+              <input class="edit-input" id="editInput-${s.id}" type="text" maxlength="25" value="${esc(s.name)}">
               <button class="save-btn" onclick="saveEdit('${s.id}')">Save</button>
               <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
             </div>`;
@@ -776,6 +776,10 @@ async function submitSuggestion() {
   }
   const name = charInput.value.trim();
   if (!name) return;
+  if (name.split(/\s+/).length > 3) {
+    toast("Max 3 words");
+    return;
+  }
 
   // Duplicate check (case-insensitive)
   const dupe = suggestions.find(s => s.name.toLowerCase() === name.toLowerCase());
@@ -994,6 +998,10 @@ async function saveEdit(id) {
   const newName = inp.value.trim();
   if (!newName) {
     toast("Name can't be empty");
+    return;
+  }
+  if (newName.split(/\s+/).length > 3) {
+    toast("Max 3 words");
     return;
   }
   const current = suggestions.find((s) => s.id === id);
