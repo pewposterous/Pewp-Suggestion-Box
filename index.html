@@ -468,13 +468,26 @@ charInput.addEventListener("keydown", e => {
 });
 
 // ── Vote (toggle) ──
-// Transactional read-then-write so the new count is computed from the
-// *actual* current value. Prevents votes going below 0, and self-heals
-// stale localStorage: if we think we voted but the count is 0, treat
-// the click as a fresh upvote instead of a broken decrement.
+// Transactional read-then-write so the new count is computed from
+// the *actual* current value (prevents votes < 0, self-heals stale
+// localStorage). Local state is updated OPTIMISTICALLY before the
+// transaction so rapid clicks and concurrent snapshot re-renders
+// see a consistent wasVoted, and rolled back if the tx fails.
+const votingIds = new Set();
+
 async function vote(id) {
+  if (votingIds.has(id)) return;
+  votingIds.add(id);
+
   const wasVoted = !!myVotes[id];
   const docRef = collection.doc(id);
+
+  const setLocal = (voted) => {
+    if (voted) myVotes[id] = true;
+    else delete myVotes[id];
+    localStorage.setItem("votes", JSON.stringify(myVotes));
+  };
+  setLocal(!wasVoted);
 
   try {
     const nowVoted = await db.runTransaction(async (tx) => {
@@ -489,13 +502,13 @@ async function vote(id) {
       tx.update(docRef, { votes: current + 1 });
       return true;
     });
-
-    if (nowVoted) myVotes[id] = true;
-    else delete myVotes[id];
-    localStorage.setItem("votes", JSON.stringify(myVotes));
+    setLocal(nowVoted);
   } catch (e) {
+    setLocal(wasVoted);
     console.error(e);
     toast("Vote failed");
+  } finally {
+    votingIds.delete(id);
   }
 }
 
