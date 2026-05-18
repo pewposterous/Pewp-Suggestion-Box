@@ -259,7 +259,24 @@
     border-radius: var(--radius);
     padding: 0.85rem 1rem;
     margin-bottom: 0.5rem;
+    position: relative;
   }
+  .past-round .pr-delete {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.7rem;
+    background: var(--danger);
+    border: none;
+    border-radius: 6px;
+    color: var(--danger-solid);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    display: none;
+  }
+  .past-round .pr-delete:hover { opacity: 0.7; }
+  .past-rounds.admin-mode .pr-delete { display: block; }
   .past-round .pr-prompt {
     font-family: 'Instrument Serif', serif;
     font-size: 1.05rem;
@@ -727,6 +744,7 @@ function renderPastRounds() {
     return;
   }
   pastRoundsEl.style.display = "block";
+  pastRoundsEl.classList.toggle("admin-mode", isAdmin);
   const medals = ["🥇", "🥈", "🥉"];
   pastRoundsEl.innerHTML = `<h2>Past rounds</h2>` + pastRounds.map((r) => {
     const date = r.closedAt ? formatDate(r.closedAt.toDate()) : "";
@@ -738,6 +756,7 @@ function renderPastRounds() {
         ).join("")}</div>`;
     return `
       <div class="past-round">
+        <button class="pr-delete" onclick="removeRound('${r.id}')" title="Delete round">✕</button>
         <div class="pr-prompt">${esc(r.prompt)}</div>
         <div class="pr-date">Closed ${date}</div>
         ${podium}
@@ -896,6 +915,30 @@ async function closeRound() {
   } catch (e) {
     console.error(e);
     toast("Could not close round — check console");
+  }
+}
+
+async function removeRound(id) {
+  if (!isAdmin) return;
+  const round = pastRounds.find((r) => r.id === id);
+  if (!round) return;
+  const promptShort = round.prompt.length > 60 ? round.prompt.slice(0, 60) + "…" : round.prompt;
+  if (!window.confirm(`Delete this round permanently?\n\n"${promptShort}"\n\nAll its suggestions will be removed too. This cannot be undone.`)) return;
+
+  try {
+    const snap = await suggestionsRef.where("roundId", "==", id).get();
+    let docs = snap.docs.slice();
+    while (docs.length > 0) {
+      const chunk = docs.splice(0, 450);
+      const batch = db.batch();
+      chunk.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    await roundsRef.doc(id).delete();
+    toast("Round deleted");
+  } catch (e) {
+    console.error(e);
+    toast("Delete failed — check console");
   }
 }
 
