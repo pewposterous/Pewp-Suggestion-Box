@@ -8,6 +8,7 @@
 <!-- Firebase SDK (compat for simplicity) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -200,6 +201,47 @@
   .delete-btn:hover { opacity: 0.7; }
   .admin-mode .delete-btn { display: block; }
 
+  .edit-btn {
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-muted);
+    padding: 0.3rem 0.55rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    display: none;
+  }
+  .edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .admin-mode .edit-btn { display: block; }
+
+  .card .edit-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.3rem 0.55rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 1rem;
+    outline: none;
+    min-width: 0;
+  }
+  .save-btn, .cancel-btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .cancel-btn { background: var(--border); color: var(--text-muted); font-weight: 500; }
+
   /* ── Empty state ── */
   .empty {
     text-align: center;
@@ -332,7 +374,7 @@
 
   <div class="status-bar">
     <span class="count" id="countLabel">—</span>
-    <button class="admin-toggle" id="adminBtn" onclick="toggleAdmin()">Admin</button>
+    <button class="admin-toggle" id="authBtn" onclick="handleAuthClick()">Sign in</button>
   </div>
 
   <div id="list" class="cards">
@@ -341,19 +383,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-
-<!-- Admin password overlay -->
-<div class="overlay" id="adminOverlay">
-  <div class="overlay-box">
-    <h3>Admin Access</h3>
-    <div class="error" id="adminError" style="display:none"></div>
-    <input type="password" id="adminPass" placeholder="Password" autocomplete="off">
-    <div class="btn-row">
-      <button class="btn-cancel" onclick="closeAdminOverlay()">Cancel</button>
-      <button class="btn-confirm" onclick="confirmAdmin()">Enter</button>
-    </div>
-  </div>
-</div>
 
 <script>
 // ╔══════════════════════════════════════════════════╗
@@ -378,25 +407,28 @@ const FIREBASE_CONFIG = {
 
 };
 
-// Set your admin password here.
-// This is a simple client-side check — fine for a small
-// community tool, not meant for high-security use.
-const ADMIN_PASSWORD = "Mojd1mojd";
+// Admin is whoever signs in with this Google account.
+// Real enforcement lives in the Firestore security rules — this
+// constant is only used to show/hide UI affordances.
+const ADMIN_EMAIL = "pewposterous@gmail.com";
 
 // ════════════════════════════════════════════════════
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 const collection = db.collection("suggestions");
+const auth = firebase.auth();
 
 let suggestions = [];
 let isAdmin = false;
+let editingId = null;
 let myVotes = JSON.parse(localStorage.getItem("votes") || "{}");
 
 const listEl = document.getElementById("list");
 const countLabel = document.getElementById("countLabel");
 const charInput = document.getElementById("charInput");
 const submitBtn = document.getElementById("submitBtn");
+const authBtn = document.getElementById("authBtn");
 
 // ── Real-time listener ──
 collection.orderBy("votes", "desc").onSnapshot(snapshot => {
@@ -424,15 +456,36 @@ function render() {
   listEl.className = isAdmin ? "cards admin-mode" : "cards";
   listEl.innerHTML = suggestions.map(s => {
     const voted = myVotes[s.id] ? "voted" : "";
+    if (editingId === s.id) {
+      return `
+        <div class="card">
+          <input class="edit-input" id="editInput-${s.id}" type="text" maxlength="80" value="${esc(s.name)}">
+          <button class="save-btn" onclick="saveEdit('${s.id}')">Save</button>
+          <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
+        </div>`;
+    }
     return `
       <div class="card">
         <span class="name">${esc(s.name)}</span>
         <button class="vote-btn ${voted}" onclick="vote('${s.id}')">
           <span class="arrow">▲</span> ${s.votes}
         </button>
+        <button class="edit-btn" onclick="startEdit('${s.id}')" title="Edit">✎</button>
         <button class="delete-btn" onclick="remove('${s.id}')" title="Delete">✕</button>
       </div>`;
   }).join("");
+
+  if (editingId) {
+    const inp = document.getElementById(`editInput-${editingId}`);
+    if (inp) {
+      inp.focus();
+      inp.setSelectionRange(inp.value.length, inp.value.length);
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") saveEdit(editingId);
+        else if (e.key === "Escape") cancelEdit();
+      });
+    }
+  }
 }
 
 // ── Submit ──
@@ -526,40 +579,73 @@ async function remove(id) {
   }
 }
 
-// ── Admin toggle ──
-function toggleAdmin() {
-  if (isAdmin) {
-    isAdmin = false;
-    document.getElementById("adminBtn").classList.remove("active");
+// ── Auth (Google Sign-In) ──
+// Real admin enforcement is in Firestore rules. This UI just
+// reflects the current auth state.
+auth.onAuthStateChanged((user) => {
+  isAdmin = !!(user && user.email === ADMIN_EMAIL && user.emailVerified);
+  authBtn.textContent = user ? "Sign out" : "Sign in";
+  authBtn.classList.toggle("active", isAdmin);
+  if (editingId) editingId = null;
+  render();
+});
+
+function handleAuthClick() {
+  if (auth.currentUser) {
+    auth.signOut().catch((e) => { console.error(e); toast("Sign-out failed"); });
+  } else {
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+      .then(({ user }) => {
+        if (user.email !== ADMIN_EMAIL) {
+          toast("Signed in, but not the admin account");
+        } else {
+          toast("Signed in");
+        }
+      })
+      .catch((e) => {
+        if (e.code !== "auth/popup-closed-by-user") {
+          console.error(e);
+          toast("Sign-in failed");
+        }
+      });
+  }
+}
+
+// ── Rename (admin) ──
+function startEdit(id) {
+  if (!isAdmin) return;
+  editingId = id;
+  render();
+}
+
+function cancelEdit() {
+  editingId = null;
+  render();
+}
+
+async function saveEdit(id) {
+  if (!isAdmin) return;
+  const inp = document.getElementById(`editInput-${id}`);
+  if (!inp) return;
+  const newName = inp.value.trim();
+  if (!newName) {
+    toast("Name can't be empty");
+    return;
+  }
+  const current = suggestions.find((s) => s.id === id);
+  if (current && current.name === newName) {
+    editingId = null;
     render();
     return;
   }
-  document.getElementById("adminOverlay").classList.add("show");
-  document.getElementById("adminPass").value = "";
-  document.getElementById("adminError").style.display = "none";
-  setTimeout(() => document.getElementById("adminPass").focus(), 100);
-}
-
-function confirmAdmin() {
-  const pass = document.getElementById("adminPass").value;
-  if (pass === ADMIN_PASSWORD) {
-    isAdmin = true;
-    document.getElementById("adminBtn").classList.add("active");
-    closeAdminOverlay();
-    render();
-    toast("Admin mode on");
-  } else {
-    document.getElementById("adminError").textContent = "Wrong password";
-    document.getElementById("adminError").style.display = "block";
+  try {
+    await collection.doc(id).update({ name: newName });
+    editingId = null;
+    toast("Renamed");
+  } catch (e) {
+    console.error(e);
+    toast("Rename failed");
   }
-}
-
-document.getElementById("adminPass").addEventListener("keydown", e => {
-  if (e.key === "Enter") confirmAdmin();
-});
-
-function closeAdminOverlay() {
-  document.getElementById("adminOverlay").classList.remove("show");
 }
 
 // ── Helpers ──
