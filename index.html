@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Character Suggestions</title>
+
+<!-- Firebase SDK (compat for simplicity) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f1014;
+    --surface: #1a1b22;
+    --surface-hover: #22232e;
+    --border: #2a2b38;
+    --border-accent: #3d3e50;
+    --text: #e2e0dc;
+    --text-muted: #7c7b85;
+    --accent: #c8a46e;
+    --accent-glow: #c8a46e33;
+    --danger: #a0404080;
+    --danger-solid: #c05050;
+    --upvote-bg: #c8a46e18;
+    --upvote-active: #c8a46e30;
+    --radius: 10px;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 3rem 1.25rem 4rem;
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  header h1 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 2.4rem;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    margin-bottom: 0.35rem;
+  }
+  header p {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+  }
+
+  /* ── Submit form ── */
+  .submit-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+  }
+  .submit-row input {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7rem 1rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .submit-row input::placeholder { color: var(--text-muted); }
+  .submit-row input:focus { border-color: var(--accent); }
+
+  .submit-row button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.7rem 1.3rem;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+  .submit-row button:hover { opacity: 0.85; }
+  .submit-row button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Status bar ── */
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .status-bar .count { font-variant-numeric: tabular-nums; }
+
+  .admin-toggle {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: 6px;
+    padding: 0.3rem 0.7rem;
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .admin-toggle:hover { border-color: var(--accent); color: var(--accent); }
+  .admin-toggle.active {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+
+  /* ── Card list ── */
+  .cards { display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.85rem;
+    transition: border-color 0.2s, background 0.2s;
+    animation: cardIn 0.3s ease-out;
+  }
+  @keyframes cardIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card .name {
+    flex: 1;
+    font-size: 1rem;
+    font-weight: 500;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .vote-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--upvote-bg);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0.35rem 0.7rem;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+  .vote-btn:hover { background: var(--upvote-active); color: var(--accent); }
+  .vote-btn.voted {
+    background: var(--upvote-active);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .vote-btn .arrow { font-size: 1rem; line-height: 1; }
+
+  .delete-btn {
+    background: var(--danger);
+    border: none;
+    border-radius: 6px;
+    color: var(--danger-solid);
+    padding: 0.3rem 0.55rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+    display: none;
+  }
+  .delete-btn:hover { opacity: 0.7; }
+  .admin-mode .delete-btn { display: block; }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-style: italic;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    background: var(--surface);
+    border: 1px solid var(--border-accent);
+    color: var(--text);
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+
+  /* ── Admin overlay ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: #0008;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 200;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s;
+  }
+  .overlay.show { opacity: 1; visibility: visible; }
+  .overlay-box {
+    background: var(--surface);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    width: 90%;
+    max-width: 340px;
+  }
+  .overlay-box h3 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 1.3rem;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+  }
+  .overlay-box input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+    margin-bottom: 0.75rem;
+  }
+  .overlay-box input:focus { border-color: var(--accent); }
+  .overlay-box .btn-row { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .overlay-box .btn-row button {
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-family: inherit;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .overlay-box .btn-cancel {
+    background: var(--border);
+    color: var(--text-muted);
+  }
+  .overlay-box .btn-confirm {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+  }
+  .overlay-box .error {
+    color: var(--danger-solid);
+    font-size: 0.82rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ── Loading ── */
+  .loading {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+  }
+  .loading::after {
+    content: '';
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Character Suggestions</h1>
+    <p>Suggest a character &amp; upvote your favourites</p>
+  </header>
+
+  <div class="submit-row">
+    <input type="text" id="charInput" placeholder="Suggest a character…" maxlength="80" autocomplete="off">
+    <button id="submitBtn" onclick="submitSuggestion()">Suggest</button>
+  </div>
+
+  <div class="status-bar">
+    <span class="count" id="countLabel">—</span>
+    <button class="admin-toggle" id="adminBtn" onclick="toggleAdmin()">Admin</button>
+  </div>
+
+  <div id="list" class="cards">
+    <div class="loading" id="loader">Loading</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Admin password overlay -->
+<div class="overlay" id="adminOverlay">
+  <div class="overlay-box">
+    <h3>Admin Access</h3>
+    <div class="error" id="adminError" style="display:none"></div>
+    <input type="password" id="adminPass" placeholder="Password" autocomplete="off">
+    <div class="btn-row">
+      <button class="btn-cancel" onclick="closeAdminOverlay()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmAdmin()">Enter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ╔══════════════════════════════════════════════════╗
+// ║  CONFIGURATION — Replace these with your own!   ║
+// ╚══════════════════════════════════════════════════╝
+
+const firebaseConfig = {
+
+  apiKey: "AIzaSyAo7BEfXaARRFLlxgL4bxdq4KFYwAXUNYs",
+
+  authDomain: "pewp-s-suggestion-box.firebaseapp.com",
+
+  projectId: "pewp-s-suggestion-box",
+
+  storageBucket: "pewp-s-suggestion-box.firebasestorage.app",
+
+  messagingSenderId: "971773489365",
+
+  appId: "1:971773489365:web:bbfecc7dd10cc20d4ef25c",
+
+  measurementId: "G-8T19WTB3LY"
+
+};
+
+// Set your admin password here.
+// This is a simple client-side check — fine for a small
+// community tool, not meant for high-security use.
+const ADMIN_PASSWORD = "Mojd1mojd";
+
+// ════════════════════════════════════════════════════
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.firestore();
+const collection = db.collection("suggestions");
+
+let suggestions = [];
+let isAdmin = false;
+let myVotes = JSON.parse(localStorage.getItem("votes") || "{}");
+
+const listEl = document.getElementById("list");
+const countLabel = document.getElementById("countLabel");
+const charInput = document.getElementById("charInput");
+const submitBtn = document.getElementById("submitBtn");
+
+// ── Real-time listener ──
+collection.orderBy("votes", "desc").onSnapshot(snapshot => {
+  suggestions = [];
+  snapshot.forEach(doc => {
+    suggestions.push({ id: doc.id, ...doc.data() });
+  });
+  render();
+}, err => {
+  console.error("Firestore error:", err);
+  listEl.innerHTML = `<div class="empty">Could not connect to database.<br>Check the Firebase config.</div>`;
+});
+
+// ── Render ──
+function render() {
+  document.getElementById("loader")?.remove();
+
+  countLabel.textContent = `${suggestions.length} suggestion${suggestions.length !== 1 ? 's' : ''}`;
+
+  if (suggestions.length === 0) {
+    listEl.innerHTML = `<div class="empty">No suggestions yet — be the first!</div>`;
+    return;
+  }
+
+  listEl.className = isAdmin ? "cards admin-mode" : "cards";
+  listEl.innerHTML = suggestions.map(s => {
+    const voted = myVotes[s.id] ? "voted" : "";
+    return `
+      <div class="card">
+        <span class="name">${esc(s.name)}</span>
+        <button class="vote-btn ${voted}" onclick="vote('${s.id}')">
+          <span class="arrow">▲</span> ${s.votes}
+        </button>
+        <button class="delete-btn" onclick="remove('${s.id}')" title="Delete">✕</button>
+      </div>`;
+  }).join("");
+}
+
+// ── Submit ──
+async function submitSuggestion() {
+  const name = charInput.value.trim();
+  if (!name) return;
+
+  // Duplicate check (case-insensitive)
+  const dupe = suggestions.find(s => s.name.toLowerCase() === name.toLowerCase());
+  if (dupe) {
+    toast("That character has already been suggested!");
+    return;
+  }
+
+  submitBtn.disabled = true;
+  try {
+    await collection.add({
+      name: name,
+      votes: 0,
+      created: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    charInput.value = "";
+    toast("Suggestion added!");
+  } catch (e) {
+    console.error(e);
+    toast("Error — check console");
+  }
+  submitBtn.disabled = false;
+}
+
+charInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") submitSuggestion();
+});
+
+// ── Vote (toggle) ──
+async function vote(id) {
+  const wasVoted = myVotes[id];
+  const delta = wasVoted ? -1 : 1;
+
+  try {
+    await collection.doc(id).update({
+      votes: firebase.firestore.FieldValue.increment(delta)
+    });
+    if (wasVoted) delete myVotes[id];
+    else myVotes[id] = true;
+    localStorage.setItem("votes", JSON.stringify(myVotes));
+  } catch (e) {
+    console.error(e);
+    toast("Vote failed");
+  }
+}
+
+// ── Delete (admin) ──
+async function remove(id) {
+  if (!isAdmin) return;
+  try {
+    await collection.doc(id).delete();
+    delete myVotes[id];
+    localStorage.setItem("votes", JSON.stringify(myVotes));
+    toast("Deleted");
+  } catch (e) {
+    console.error(e);
+    toast("Delete failed");
+  }
+}
+
+// ── Admin toggle ──
+function toggleAdmin() {
+  if (isAdmin) {
+    isAdmin = false;
+    document.getElementById("adminBtn").classList.remove("active");
+    render();
+    return;
+  }
+  document.getElementById("adminOverlay").classList.add("show");
+  document.getElementById("adminPass").value = "";
+  document.getElementById("adminError").style.display = "none";
+  setTimeout(() => document.getElementById("adminPass").focus(), 100);
+}
+
+function confirmAdmin() {
+  const pass = document.getElementById("adminPass").value;
+  if (pass === ADMIN_PASSWORD) {
+    isAdmin = true;
+    document.getElementById("adminBtn").classList.add("active");
+    closeAdminOverlay();
+    render();
+    toast("Admin mode on");
+  } else {
+    document.getElementById("adminError").textContent = "Wrong password";
+    document.getElementById("adminError").style.display = "block";
+  }
+}
+
+document.getElementById("adminPass").addEventListener("keydown", e => {
+  if (e.key === "Enter") confirmAdmin();
+});
+
+function closeAdminOverlay() {
+  document.getElementById("adminOverlay").classList.remove("show");
+}
+
+// ── Helpers ──
+function esc(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove("show"), 2200);
+}
+</script>
+</body>
+</html>
