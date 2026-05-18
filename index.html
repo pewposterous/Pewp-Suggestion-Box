@@ -30,6 +30,9 @@
     --danger-solid: #c05050;
     --upvote-bg: #c8a46e18;
     --upvote-active: #c8a46e30;
+    --gold: #d4a847;
+    --silver: #b7b7b7;
+    --bronze: #cd7f32;
     --radius: 10px;
   }
 
@@ -131,6 +134,155 @@
     background: var(--accent-glow);
     color: var(--accent);
   }
+
+  /* ── Auth icon (top-right) ── */
+  .auth-icon {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 50;
+  }
+  .auth-icon:hover { border-color: var(--accent); color: var(--accent); }
+  .auth-icon.active {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+
+  /* ── Round header ── */
+  .round-header {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .round-header .meta { flex: 1; min-width: 0; }
+  .round-header .prompt {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.35rem;
+    color: var(--accent);
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+    word-break: break-word;
+  }
+  .round-header .sub {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+  .round-header .close-btn {
+    background: var(--danger);
+    color: var(--danger-solid);
+    border: 1px solid var(--danger-solid);
+    border-radius: 6px;
+    padding: 0.4rem 0.8rem;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+    display: none;
+  }
+  .round-header.admin-mode .close-btn { display: block; }
+  .round-header .close-btn:hover { opacity: 0.75; }
+
+  /* ── Closed banner (no active round) ── */
+  .closed-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .closed-banner h2 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 1.6rem;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  .closed-banner p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 1.2rem;
+  }
+  .closed-banner button {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.7rem 1.3rem;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .closed-banner button:hover { opacity: 0.85; }
+
+  /* ── Podium ranks ── */
+  .card.rank-1 { border-color: var(--gold);   box-shadow: inset 0 0 0 1px var(--gold); }
+  .card.rank-2 { border-color: var(--silver); box-shadow: inset 0 0 0 1px var(--silver); }
+  .card.rank-3 { border-color: var(--bronze); box-shadow: inset 0 0 0 1px var(--bronze); }
+
+  /* ── Past rounds archive ── */
+  .past-rounds { margin-top: 3rem; }
+  .past-rounds h2 {
+    font-family: 'Instrument Serif', serif;
+    font-weight: 400;
+    font-size: 1.3rem;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    text-align: center;
+  }
+  .past-round {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+  .past-round .pr-prompt {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.05rem;
+    color: var(--text);
+    margin-bottom: 0.15rem;
+    word-break: break-word;
+  }
+  .past-round .pr-date {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-bottom: 0.6rem;
+  }
+  .past-round .podium {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1rem;
+    font-size: 0.92rem;
+  }
+  .past-round .podium .entry { display: inline-flex; gap: 0.35rem; align-items: baseline; }
+  .past-round .podium .entry .medal { font-size: 1rem; }
+  .past-round .podium .entry .nm { font-weight: 500; }
+  .past-round .podium .entry .vt { color: var(--text-muted); font-variant-numeric: tabular-nums; font-size: 0.82rem; }
+  .past-round .empty-note { color: var(--text-muted); font-style: italic; font-size: 0.88rem; }
 
   /* ── Card list ── */
   .cards { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -361,25 +513,44 @@
 </head>
 <body>
 
+<button class="auth-icon" id="authBtn" onclick="handleAuthClick()" aria-label="Sign in" title="Sign in">👤</button>
+
 <div class="container">
   <header>
     <h1>Character Suggestions</h1>
     <p>Suggest a character &amp; upvote your favourites</p>
   </header>
 
-  <div class="submit-row">
-    <input type="text" id="charInput" placeholder="Suggest a character…" maxlength="80" autocomplete="off">
-    <button id="submitBtn" onclick="submitSuggestion()">Suggest</button>
+  <div id="roundHeader" class="round-header" style="display:none">
+    <div class="meta">
+      <div class="prompt" id="roundPrompt"></div>
+      <div class="sub" id="roundSub"></div>
+    </div>
+    <button class="close-btn" onclick="closeRound()">Close round</button>
   </div>
 
-  <div class="status-bar">
-    <span class="count" id="countLabel">—</span>
-    <button class="admin-toggle" id="authBtn" onclick="handleAuthClick()">Sign in</button>
+  <div id="closedBanner" class="closed-banner" style="display:none">
+    <h2 id="closedBannerTitle">Suggestion box closed</h2>
+    <p id="closedBannerMsg">Voting closed — next round coming soon.</p>
+    <button id="startRoundBtn" onclick="startNewRound()" style="display:none">Start new round</button>
   </div>
 
-  <div id="list" class="cards">
-    <div class="loading" id="loader">Loading</div>
+  <div id="activeRoundArea" style="display:none">
+    <div class="submit-row">
+      <input type="text" id="charInput" placeholder="Suggest a character…" maxlength="80" autocomplete="off">
+      <button id="submitBtn" onclick="submitSuggestion()">Suggest</button>
+    </div>
+
+    <div class="status-bar">
+      <span class="count" id="countLabel">—</span>
+    </div>
+
+    <div id="list" class="cards">
+      <div class="loading" id="loader">Loading</div>
+    </div>
   </div>
+
+  <section id="pastRounds" class="past-rounds" style="display:none"></section>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -416,80 +587,174 @@ const ADMIN_EMAIL = "pewposterous@gmail.com";
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
-const collection = db.collection("suggestions");
+const roundsRef = db.collection("rounds");
+const suggestionsRef = db.collection("suggestions");
 const auth = firebase.auth();
 
+let allRounds = [];
+let activeRound = null;
+let pastRounds = [];
 let suggestions = [];
+let suggestionsUnsubscribe = null;
 let isAdmin = false;
 let editingId = null;
 let myVotes = JSON.parse(localStorage.getItem("votes") || "{}");
 
+const roundHeaderEl = document.getElementById("roundHeader");
+const roundPromptEl = document.getElementById("roundPrompt");
+const roundSubEl = document.getElementById("roundSub");
+const closedBannerEl = document.getElementById("closedBanner");
+const closedBannerMsgEl = document.getElementById("closedBannerMsg");
+const startRoundBtnEl = document.getElementById("startRoundBtn");
+const activeRoundAreaEl = document.getElementById("activeRoundArea");
+const pastRoundsEl = document.getElementById("pastRounds");
 const listEl = document.getElementById("list");
 const countLabel = document.getElementById("countLabel");
 const charInput = document.getElementById("charInput");
 const submitBtn = document.getElementById("submitBtn");
 const authBtn = document.getElementById("authBtn");
 
-// ── Real-time listener ──
-collection.orderBy("votes", "desc").onSnapshot(snapshot => {
-  suggestions = [];
-  snapshot.forEach(doc => {
-    suggestions.push({ id: doc.id, ...doc.data() });
-  });
+// ── Rounds listener (single source of truth for round state) ──
+roundsRef.orderBy("createdAt", "desc").onSnapshot((snap) => {
+  allRounds = [];
+  snap.forEach((doc) => allRounds.push({ id: doc.id, ...doc.data() }));
+  const newActive = allRounds.find((r) => r.state === "open") || null;
+  pastRounds = allRounds.filter((r) => r.state === "closed");
+
+  // Rebind suggestions listener when active round changes
+  const activeId = newActive ? newActive.id : null;
+  const prevId = activeRound ? activeRound.id : null;
+  if (activeId !== prevId) {
+    if (suggestionsUnsubscribe) { suggestionsUnsubscribe(); suggestionsUnsubscribe = null; }
+    suggestions = [];
+    if (activeId) {
+      suggestionsUnsubscribe = suggestionsRef
+        .where("roundId", "==", activeId)
+        .orderBy("votes", "desc")
+        .onSnapshot((s) => {
+          suggestions = [];
+          s.forEach((d) => suggestions.push({ id: d.id, ...d.data() }));
+          render();
+        }, (err) => {
+          console.error("Suggestions listener error:", err);
+          toast("Connection error — check console");
+        });
+    }
+  }
+  activeRound = newActive;
   render();
-}, err => {
-  console.error("Firestore error:", err);
-  listEl.innerHTML = `<div class="empty">Could not connect to database.<br>Check the Firebase config.</div>`;
+}, (err) => {
+  console.error("Rounds listener error:", err);
 });
 
 // ── Render ──
 function render() {
   document.getElementById("loader")?.remove();
 
-  countLabel.textContent = `${suggestions.length} suggestion${suggestions.length !== 1 ? 's' : ''}`;
+  if (activeRound) {
+    // Active round view
+    closedBannerEl.style.display = "none";
+    roundHeaderEl.style.display = "flex";
+    activeRoundAreaEl.style.display = "block";
 
-  if (suggestions.length === 0) {
-    listEl.innerHTML = `<div class="empty">No suggestions yet — be the first!</div>`;
+    const idx = allRounds.length - allRounds.indexOf(activeRound);
+    const dateStr = activeRound.createdAt
+      ? `Opened ${formatDate(activeRound.createdAt.toDate())}`
+      : "Just opened";
+    roundPromptEl.textContent = activeRound.prompt;
+    roundSubEl.textContent = `Round #${idx} • ${dateStr}`;
+    roundHeaderEl.classList.toggle("admin-mode", isAdmin);
+
+    countLabel.textContent = `${suggestions.length} suggestion${suggestions.length !== 1 ? "s" : ""}`;
+
+    if (suggestions.length === 0) {
+      listEl.className = isAdmin ? "cards admin-mode" : "cards";
+      listEl.innerHTML = `<div class="empty">No suggestions yet — be the first!</div>`;
+    } else {
+      listEl.className = isAdmin ? "cards admin-mode" : "cards";
+      listEl.innerHTML = suggestions.map((s, i) => {
+        const voted = myVotes[s.id] ? "voted" : "";
+        const rank = i < 3 ? ` rank-${i + 1}` : "";
+        if (editingId === s.id) {
+          return `
+            <div class="card${rank}">
+              <input class="edit-input" id="editInput-${s.id}" type="text" maxlength="80" value="${esc(s.name)}">
+              <button class="save-btn" onclick="saveEdit('${s.id}')">Save</button>
+              <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
+            </div>`;
+        }
+        return `
+          <div class="card${rank}">
+            <span class="name">${esc(s.name)}</span>
+            <button class="vote-btn ${voted}" onclick="vote('${s.id}')">
+              <span class="arrow">▲</span> ${s.votes}
+            </button>
+            <button class="edit-btn" onclick="startEdit('${s.id}')" title="Edit">✎</button>
+            <button class="delete-btn" onclick="remove('${s.id}')" title="Delete">✕</button>
+          </div>`;
+      }).join("");
+
+      if (editingId) {
+        const inp = document.getElementById(`editInput-${editingId}`);
+        if (inp) {
+          inp.focus();
+          inp.setSelectionRange(inp.value.length, inp.value.length);
+          inp.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") saveEdit(editingId);
+            else if (e.key === "Escape") cancelEdit();
+          });
+        }
+      }
+    }
+  } else {
+    // No active round
+    roundHeaderEl.style.display = "none";
+    activeRoundAreaEl.style.display = "none";
+    closedBannerEl.style.display = "block";
+    closedBannerMsgEl.textContent = isAdmin
+      ? "Open a new round when you're ready."
+      : "Voting closed — next round coming soon.";
+    startRoundBtnEl.style.display = isAdmin ? "inline-block" : "none";
+  }
+
+  renderPastRounds();
+}
+
+function renderPastRounds() {
+  if (pastRounds.length === 0) {
+    pastRoundsEl.style.display = "none";
+    pastRoundsEl.innerHTML = "";
     return;
   }
-
-  listEl.className = isAdmin ? "cards admin-mode" : "cards";
-  listEl.innerHTML = suggestions.map(s => {
-    const voted = myVotes[s.id] ? "voted" : "";
-    if (editingId === s.id) {
-      return `
-        <div class="card">
-          <input class="edit-input" id="editInput-${s.id}" type="text" maxlength="80" value="${esc(s.name)}">
-          <button class="save-btn" onclick="saveEdit('${s.id}')">Save</button>
-          <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
-        </div>`;
-    }
+  pastRoundsEl.style.display = "block";
+  const medals = ["🥇", "🥈", "🥉"];
+  pastRoundsEl.innerHTML = `<h2>Past rounds</h2>` + pastRounds.map((r) => {
+    const date = r.closedAt ? formatDate(r.closedAt.toDate()) : "";
+    const top3 = Array.isArray(r.top3) ? r.top3 : [];
+    const podium = top3.length === 0
+      ? `<div class="empty-note">No suggestions submitted.</div>`
+      : `<div class="podium">${top3.map((e, i) =>
+          `<span class="entry"><span class="medal">${medals[i]}</span><span class="nm">${esc(e.name)}</span><span class="vt">· ${e.votes}</span></span>`
+        ).join("")}</div>`;
     return `
-      <div class="card">
-        <span class="name">${esc(s.name)}</span>
-        <button class="vote-btn ${voted}" onclick="vote('${s.id}')">
-          <span class="arrow">▲</span> ${s.votes}
-        </button>
-        <button class="edit-btn" onclick="startEdit('${s.id}')" title="Edit">✎</button>
-        <button class="delete-btn" onclick="remove('${s.id}')" title="Delete">✕</button>
+      <div class="past-round">
+        <div class="pr-prompt">${esc(r.prompt)}</div>
+        <div class="pr-date">Closed ${date}</div>
+        ${podium}
       </div>`;
   }).join("");
+}
 
-  if (editingId) {
-    const inp = document.getElementById(`editInput-${editingId}`);
-    if (inp) {
-      inp.focus();
-      inp.setSelectionRange(inp.value.length, inp.value.length);
-      inp.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") saveEdit(editingId);
-        else if (e.key === "Escape") cancelEdit();
-      });
-    }
-  }
+function formatDate(d) {
+  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
 // ── Submit ──
 async function submitSuggestion() {
+  if (!activeRound) {
+    toast("No active round");
+    return;
+  }
   const name = charInput.value.trim();
   if (!name) return;
 
@@ -502,7 +767,8 @@ async function submitSuggestion() {
 
   submitBtn.disabled = true;
   try {
-    await collection.add({
+    await suggestionsRef.add({
+      roundId: activeRound.id,
       name: name,
       votes: 0,
       created: firebase.firestore.FieldValue.serverTimestamp()
@@ -533,7 +799,7 @@ async function vote(id) {
   votingIds.add(id);
 
   const wasVoted = !!myVotes[id];
-  const docRef = collection.doc(id);
+  const docRef = suggestionsRef.doc(id);
 
   const setLocal = (voted) => {
     if (voted) myVotes[id] = true;
@@ -567,9 +833,9 @@ async function vote(id) {
 
 // ── Delete (admin) ──
 async function remove(id) {
-  if (!isAdmin) return;
+  if (!isAdmin || !activeRound) return;
   try {
-    await collection.doc(id).delete();
+    await suggestionsRef.doc(id).delete();
     delete myVotes[id];
     localStorage.setItem("votes", JSON.stringify(myVotes));
     toast("Deleted");
@@ -579,13 +845,68 @@ async function remove(id) {
   }
 }
 
+// ── Round lifecycle (admin) ──
+async function startNewRound() {
+  if (!isAdmin) return;
+  if (activeRound) {
+    toast("There's already an open round");
+    return;
+  }
+  let prompt = window.prompt("Round prompt (theme/question for Patreons):");
+  if (prompt === null) return;
+  prompt = prompt.trim();
+  if (!prompt) {
+    toast("Prompt can't be empty");
+    return;
+  }
+  if (prompt.length > 120) {
+    toast("Prompt must be 120 characters or less");
+    return;
+  }
+  try {
+    await roundsRef.add({
+      prompt,
+      state: "open",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      closedAt: null,
+      top3: null
+    });
+    toast("Round opened");
+  } catch (e) {
+    console.error(e);
+    toast("Could not start round — check console");
+  }
+}
+
+async function closeRound() {
+  if (!isAdmin || !activeRound) return;
+  if (!window.confirm("Close this round? The top 3 will be locked in and the round archived.")) return;
+  const top3 = suggestions.slice(0, 3).map((s) => ({
+    id: s.id,
+    name: s.name,
+    votes: s.votes
+  }));
+  try {
+    await roundsRef.doc(activeRound.id).update({
+      state: "closed",
+      closedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      top3
+    });
+    toast("Round closed");
+  } catch (e) {
+    console.error(e);
+    toast("Could not close round — check console");
+  }
+}
+
 // ── Auth (Google Sign-In) ──
 // Real admin enforcement is in Firestore rules. This UI just
 // reflects the current auth state.
 auth.onAuthStateChanged((user) => {
   isAdmin = !!(user && user.email === ADMIN_EMAIL && user.emailVerified);
-  authBtn.textContent = user ? "Sign out" : "Sign in";
   authBtn.classList.toggle("active", isAdmin);
+  authBtn.setAttribute("title", user ? "Sign out" : "Sign in");
+  authBtn.setAttribute("aria-label", user ? "Sign out" : "Sign in");
   if (editingId) editingId = null;
   render();
 });
@@ -624,7 +945,7 @@ function cancelEdit() {
 }
 
 async function saveEdit(id) {
-  if (!isAdmin) return;
+  if (!isAdmin || !activeRound) return;
   const inp = document.getElementById(`editInput-${id}`);
   if (!inp) return;
   const newName = inp.value.trim();
@@ -639,7 +960,7 @@ async function saveEdit(id) {
     return;
   }
   try {
-    await collection.doc(id).update({ name: newName });
+    await suggestionsRef.doc(id).update({ name: newName });
     editingId = null;
     toast("Renamed");
   } catch (e) {
